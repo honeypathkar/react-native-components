@@ -1,6 +1,6 @@
 {
   "name": "@honeypathkar/react-native-predictive-back-gesture",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Android 14+ Predictive Back gesture animations and swipeable screen component for React Native.",
   "publishConfig": {
     "access": "public"

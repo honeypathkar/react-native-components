@@ -1,6 +1,6 @@
 {
   "name": "@honeypathkar/react-native-step-counter",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Daily step counter library for React Native with baseline management, midnight reset, and reboot handling.",
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",
