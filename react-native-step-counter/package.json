@@ -1,0 +1,40 @@
+{
+  "name": "@honeypathkar/react-native-step-counter",
+  "version": "1.0.5",
+  "description": "Daily step counter library for React Native with baseline management, midnight reset, and reboot handling.",
+  "main": "lib/commonjs/index.js",
+  "module": "lib/module/index.js",
+  "types": "lib/typescript/index.d.ts",
+  "files": [
+    "src",
+    "lib",
+    "android/src",
+    "android/build.gradle",
+    "react-native-step-counter.podspec",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "react-native",
+    "step-counter",
+    "pedometer",
+    "android",
+    "steps",
+    "fitness"
+  ],
+  "author": "",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "react": "^18.2.0",
+    "react-native": "^0.72.0",
+    "@types/react": "^18.2.0"
+  }
+}

@@ -1,0 +1,50 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!--
+    Android 16 will not promote a notification into the status-bar chip (or
+    into whatever an OEM builds on top of it, such as Samsung's Now Bar) unless
+    the app holds this, no matter how correctly the notification is built: the
+    system checks the POST_PROMOTED_NOTIFICATIONS app op and declines the
+    promotion silently, leaving an ordinary notification in the shade with
+    nothing logged to explain it.
+
+    Declared here rather than in the host app so installing the package is
+    enough — manifest merging carries it into the app. It is a normal,
+    install-time permission with no runtime prompt; the user can still revoke
+    it per app in Settings, which is what canPostPromotedNotifications()
+    reports and what getCapabilities() surfaces as promotedSurface.available.
+
+    Unknown to devices below API 36, which ignore it.
+  -->
+  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+
+  <!--
+    POST_NOTIFICATIONS is deliberately NOT declared: it carries a runtime
+    prompt, and the decision of when to ask a user for it belongs to the app,
+    not to a library it happens to depend on.
+
+    No foreground-service permission either. A live update is a display, not a
+    background task — nothing here needs a service to stay running, and
+    declaring one would make every app installing this package answer for it
+    at review.
+
+    No location permission, for the same reason: this package renders state the
+    app gives it and never sources any itself.
+  -->
+
+  <application>
+    <!--
+      Told when the user swipes a live update away, so an activity started with
+      `persistent: true` can be posted again.
+
+      Not exported: the only thing that ever triggers this is a PendingIntent
+      this package handed to the system, and a dismissal is internal
+      bookkeeping. Nothing outside the app has a reason to fire it, and an
+      exported receiver would let anything on the device try.
+    -->
+    <receiver
+      android:name="com.liveupdate.DismissReceiver"
+      android:exported="false" />
+  </application>
+
+</manifest>

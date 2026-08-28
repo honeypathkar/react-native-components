@@ -1,4 +1,4 @@
-package com.<yourpackage>
+package com.predictiveback
 
 import android.os.Build
 import android.util.Log

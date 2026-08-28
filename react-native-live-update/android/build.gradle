@@ -1,0 +1,70 @@
+// A library must bend to the app it is installed into, never the other way
+// round. Every version below reads the host's `rootProject.ext` first and only
+// falls back to a literal when built standalone — pinning them outright is how
+// a linked library ends up loading a second Kotlin plugin and failing the whole
+// build with an error that names neither party.
+def safeExtGet(prop, fallback) {
+  rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
+
+buildscript {
+  ext.safeExtGet = { prop, fallback ->
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+  }
+  repositories {
+    google()
+    mavenCentral()
+  }
+  dependencies {
+    classpath "com.android.tools.build:gradle:8.7.2"
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${safeExtGet('kotlinVersion', '2.0.21')}"
+  }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "org.jetbrains.kotlin.android"
+
+android {
+  namespace "com.liveupdate"
+
+  // Pinned, NOT deferred to the host app. androidx.core 1.17 — which is where
+  // the whole Live Update surface lives — requires compiling against 36, and
+  // this module must build even when the app it is installed into is on an
+  // older compileSdk. Gradle is happy for modules to differ, and minSdk stays
+  // at 24: the compat library folds the same call down to a plain progress
+  // notification at runtime on anything older.
+  compileSdkVersion 36
+
+  defaultConfig {
+    minSdkVersion safeExtGet("minSdkVersion", 24)
+    targetSdkVersion safeExtGet("targetSdkVersion", 36)
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+
+  kotlinOptions {
+    jvmTarget = "17"
+  }
+}
+
+repositories {
+  google()
+  mavenCentral()
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+  implementation "org.jetbrains.kotlin:kotlin-stdlib:${safeExtGet('kotlinVersion', '2.0.21')}"
+  // 1.17.0 is a floor, not a preference. It is the first release carrying the
+  // Android 16 Live Update surface through NotificationCompat:
+  // ProgressStyle (with Segment and Point), setRequestPromotedOngoing,
+  // setShortCriticalText, canPostPromotedNotifications and
+  // hasPromotableCharacteristics. Building against the platform classes
+  // directly would work too, but only above API 36 — the compat versions pick
+  // the implementation per device, which is what removes the second code path
+  // this module used to carry for older Android.
+  implementation "androidx.core:core-ktx:${safeExtGet('androidxCoreVersion', '1.17.0')}"
+}

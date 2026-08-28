@@ -13,14 +13,12 @@ import Animated, {
   cancelAnimation,
 } from "react-native-reanimated";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
-import { useTheme } from "react-native-paper";
-import { triggerHaptic } from "../utils/hapticFeedback";
 import {
   PREDICTIVE_BACK_HAS_PROGRESS,
   PREDICTIVE_BACK_SUPPORTED,
   acquirePredictiveBack,
   releasePredictiveBack,
-} from "../native/PredictiveBack";
+} from "./PredectiveBack";
 
 const { width, height } = Dimensions.get("window");
 
@@ -49,9 +47,13 @@ const PEEK_THRESHOLD = 0.35;
 const VELOCITY_THRESHOLD = 900;
 const MIN_VELOCITY_DISTANCE = 50;
 
-const SwipeableScreen = ({ children, enabled = true, style }) => {
-  const navigation = useNavigation();
-  const theme = useTheme();
+const SwipeableScreen = ({ children, enabled = true, style, onHaptic, backgroundColor = '#000000', onGoBack }) => {
+  let navigation = null;
+  try {
+    navigation = useNavigation();
+  } catch (e) {
+    // Component rendered outside React Navigation container
+  }
 
   // Gesture progress (0…1) — drives the peek: shrink, drift right, rounded corners.
   const peek = useSharedValue(0);
@@ -73,8 +75,10 @@ const SwipeableScreen = ({ children, enabled = true, style }) => {
 
   // ─── JS-thread helpers ───────────────────────────────────────────────────
   const fireHaptic = useCallback(() => {
-    triggerHaptic("impactMedium");
-  }, []);
+    try {
+      if (onHaptic) onHaptic();
+    } catch (e) {}
+  }, [onHaptic]);
 
   const settle = useCallback(() => {
     // Put the card back at rest — used when a pop is refused or cancelled.
@@ -85,18 +89,22 @@ const SwipeableScreen = ({ children, enabled = true, style }) => {
   }, [peek, exit, nativeActive]);
 
   const goBack = useCallback(() => {
-    if (!navigation.canGoBack()) {
+    if (onGoBack) {
+      onGoBack();
+      return;
+    }
+    if (!navigation || !navigation.canGoBack()) {
       settle();
       return;
     }
     navigation.goBack();
     // goBack dispatches through `beforeRemove`, so it may not actually pop.
     requestAnimationFrame(() => {
-      if (navigation.isFocused()) {
+      if (navigation && navigation.isFocused && navigation.isFocused()) {
         settle();
       }
     });
-  }, [navigation, settle]);
+  }, [navigation, settle, onGoBack]);
 
   // ─── Commit / cancel ─────────────────────────────────────────────────────
   const commit = useCallback(
@@ -125,43 +133,50 @@ const SwipeableScreen = ({ children, enabled = true, style }) => {
 
   // ─── System back gesture (Android) ───────────────────────────────────────
   const token = useRef({}).current;
-  const isActive = enabled && navigation.canGoBack();
+  const canGoBackInNav = navigation && navigation.canGoBack ? navigation.canGoBack() : false;
+  const isActive = enabled && (canGoBackInNav || !!onGoBack);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!PREDICTIVE_BACK_SUPPORTED || !isActive) {
-        return undefined;
-      }
+  const focusEffectCallback = useCallback(() => {
+    if (!PREDICTIVE_BACK_SUPPORTED || !isActive) {
+      return undefined;
+    }
 
-      const track = (event) => {
-        peek.value = event.progress;
-        pivot.value = (event.touchY / height) * 2 - 1;
-      };
+    const track = (event) => {
+      peek.value = event.progress;
+      pivot.value = (event.touchY / height) * 2 - 1;
+    };
 
-      acquirePredictiveBack(token, {
-        onStart: (event) => {
-          if (isDismissing.current) {
-            return;
-          }
-          nativeActive.value = 1;
-          cancelAnimation(peek);
+    acquirePredictiveBack(token, {
+      onStart: (event) => {
+        if (isDismissing.current) {
+          return;
+        }
+        nativeActive.value = 1;
+        cancelAnimation(peek);
+        track(event);
+      },
+      onProgress: (event) => {
+        if (!isDismissing.current) {
           track(event);
-        },
-        onProgress: (event) => {
-          if (!isDismissing.current) {
-            track(event);
-          }
-        },
-        onCancel: cancel,
-        // Without live progress (pre-Android 14, or a 3-button back press) the card
-        // has not moved yet, so give the slide-out a little more room to breathe.
-        onCommit: () =>
-          commit(PREDICTIVE_BACK_HAS_PROGRESS ? EXIT_DURATION : ENTER_DURATION),
-      });
+        }
+      },
+      onCancel: cancel,
+      // Without live progress (pre-Android 14, or a 3-button back press) the card
+      // has not moved yet, so give the slide-out a little more room to breathe.
+      onCommit: () =>
+        commit(PREDICTIVE_BACK_HAS_PROGRESS ? EXIT_DURATION : ENTER_DURATION),
+    });
 
-      return () => releasePredictiveBack(token);
-    }, [token, isActive, peek, pivot, nativeActive, cancel, commit]),
-  );
+    return () => releasePredictiveBack(token);
+  }, [token, isActive, peek, pivot, nativeActive, cancel, commit]);
+
+  if (navigation) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useFocusEffect(focusEffectCallback);
+  } else {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useEffect(focusEffectCallback, [focusEffectCallback]);
+  }
 
   // ─── Drag-to-close from the left edge ────────────────────────────────────
   // On Android this covers the strip just inside the system gesture zone; on iOS it
@@ -225,12 +240,16 @@ const SwipeableScreen = ({ children, enabled = true, style }) => {
     };
   });
 
-  // Dims the screen underneath (visible because the navigator presents screens as
-  // transparent modals) and clears as this card moves out of the way.
   const backdropStyle = useAnimatedStyle(() => {
-    const revealed = Math.max(peek.value, exit.value);
+    const p = peek.value;
+    const e = exit.value;
+
+    if (e > 0) {
+      return { opacity: 0 };
+    }
+
     return {
-      opacity: interpolate(revealed, [0, 1], [MAX_DIM, 0], Extrapolation.CLAMP),
+      opacity: interpolate(p, [0, 1], [MAX_DIM, 0], Extrapolation.CLAMP),
     };
   });
 
@@ -245,7 +264,7 @@ const SwipeableScreen = ({ children, enabled = true, style }) => {
         <Animated.View
           style={[
             styles.screen,
-            { backgroundColor: theme.colors.background },
+            { backgroundColor },
             screenStyle,
             style,
           ]}
@@ -265,7 +284,8 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#000000",
+    // backgroundColor: '#000000',
+    opacity: 0,
     zIndex: 0,
   },
   screen: {
