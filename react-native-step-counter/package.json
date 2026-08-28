@@ -25,8 +25,20 @@
     "steps",
     "fitness"
   ],
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/honeypathkar/react-native-components.git",
+    "directory": "react-native-step-counter"
+  },
+  "homepage": "https://github.com/honeypathkar/react-native-components/tree/master/react-native-step-counter#readme",
+  "bugs": {
+    "url": "https://github.com/honeypathkar/react-native-components/issues"
+  },
+  "author": "honeypathkar",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "react": "*",
     "react-native": "*"
