@@ -45,6 +45,16 @@
     <receiver
       android:name="com.liveupdate.DismissReceiver"
       android:exported="false" />
+
+    <!--
+      Handles an action marked `endsActivity`, so the button finishes the live
+      update in place instead of opening the app to do it. Not exported, for
+      the same reason as the one above: the only thing that fires it is a
+      PendingIntent this package handed to the system.
+    -->
+    <receiver
+      android:name="com.liveupdate.ActionReceiver"
+      android:exported="false" />
   </application>
 
 </manifest>

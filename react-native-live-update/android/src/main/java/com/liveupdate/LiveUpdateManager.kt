@@ -28,12 +28,34 @@ class LiveUpdateManager(context: Context) {
   private val capabilities = CapabilityManager(this.context, channels)
   private val notifications get() = NotificationManagerCompat.from(context)
 
-  /** Pending linger cancellations, for the API levels without a system timer. */
-  private val lingering = mutableMapOf<String, Runnable>()
-  private val handler = Handler(Looper.getMainLooper())
+  /**
+   * Scheduled work lives on the class, not the instance.
+   *
+   * This manager is built wherever it is needed — the bridge module holds one,
+   * every broadcast receiver constructs its own, and the docs invite an FCM
+   * service to do the same. That is what lets it work without React Native.
+   * But it means "the manager" is never one object, so a timer parked in an
+   * instance field is invisible to every other instance: a receiver handling a
+   * Cancel cannot stop a ticker the bridge started, and it would go on firing
+   * against an activity that no longer exists.
+   */
+  private val handler get() = sharedHandler
 
   /** Raised for outcomes JS should be able to branch on. */
   class LiveUpdateException(val code: String, message: String) : Exception(message)
+
+  /**
+   * Scheduled work lives on the class, not the instance.
+   *
+   * This manager is built wherever it is needed — the bridge module holds one,
+   * every broadcast receiver constructs its own, and the docs invite an FCM
+   * service to do the same. That is the point of it having no React Native
+   * dependency. But it means "the manager" is never one object, so a timer
+   * parked in an instance field is invisible to every other instance: a
+   * receiver handling a Cancel could not stop a ticker the bridge started, and
+   * it would keep firing against an activity that no longer exists.
+   */
+
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -74,6 +96,9 @@ class LiveUpdateManager(context: Context) {
         updatedAt = now,
       ),
     )
+
+
+    scheduleAutoProgress(id)
   }
 
   /**
@@ -102,6 +127,9 @@ class LiveUpdateManager(context: Context) {
       ),
     )
     store.put(existing.copy(content = content, updatedAt = System.currentTimeMillis()))
+    // update() replaces content wholesale, so the schedule is rebuilt from the
+    // new span rather than kept from the old one.
+    scheduleAutoProgress(id)
   }
 
   /**
@@ -114,6 +142,7 @@ class LiveUpdateManager(context: Context) {
   fun end(id: String, dismissAfterMs: Long) {
     val entry = store.remove(id) ?: return
     cancelLinger(id)
+    cancelAutoProgress(id)
 
     if (dismissAfterMs <= 0) {
       notifications.cancel(entry.notificationId)
@@ -176,11 +205,14 @@ class LiveUpdateManager(context: Context) {
         persistent = true,
       ),
     )
+    // A re-posted update needs its ticker back; the swipe stopped nothing else.
+    scheduleAutoProgress(id)
   }
 
   fun endAll() {
     store.all().forEach { entry ->
       cancelLinger(entry.id)
+      cancelAutoProgress(entry.id)
       notifications.cancel(entry.notificationId)
     }
     store.clear()
@@ -272,6 +304,81 @@ class LiveUpdateManager(context: Context) {
     }
   }
 
+  // ─── Auto progress ─────────────────────────────────────────────────────────
+
+  /**
+   * Redraw a clock-driven track on a schedule of our own.
+   *
+   * Android has no time-based progress track — `ProgressStyle` holds a number,
+   * not a span — so something has to re-post the notification for the bar to
+   * move. Doing it here rather than from JS matters more than it looks: React
+   * Native stops every setTimeout and setInterval the moment the activity
+   * pauses, so a JS-driven bar freezes exactly when the user goes to look at
+   * it. A native Handler is not on that leash.
+   *
+   * It is still bound by the process: once Android freezes a cached app
+   * nothing runs, here or anywhere. Each tick recomputes from the clock rather
+   * than stepping a counter, so a frozen stretch costs the frames but not the
+   * position — the bar is correct again on the first tick after the thaw
+   * rather than resuming wherever it left off. For a bar that keeps moving
+   * while the process is frozen, the app needs a foreground service; nothing
+   * a notification library can do reaches that far.
+   */
+  private fun scheduleAutoProgress(id: String) {
+    cancelAutoProgress(id)
+
+    val entry = store.get(id) ?: return
+    val content = entry.content
+    if (!content.autoProgress || !content.progressBar) return
+
+    val start = content.startsAt ?: return
+    val end = content.endsAt ?: return
+    if (end <= start || System.currentTimeMillis() >= end) return
+
+    val interval = autoProgressIntervalMs(end - start)
+    val tick = object : Runnable {
+      override fun run() {
+        val current = store.get(id)
+        if (current == null) {
+          ticking.remove(id)
+          return
+        }
+        post(
+          current.notificationId,
+          builder.build(
+            channels.channelId,
+            id,
+            current.name,
+            current.content,
+            current.notificationId,
+            persistent = current.persistent,
+          ),
+        )
+        if (System.currentTimeMillis() < end) {
+          handler.postDelayed(this, interval)
+        } else {
+          ticking.remove(id)
+        }
+      }
+    }
+
+    ticking[id] = tick
+    handler.postDelayed(tick, interval)
+  }
+
+  /**
+   * One step per half a percent of the run, held between a second and half a
+   * minute. A minute-long timer moves every second; an hour-long one every
+   * eighteen, because a track a thousand units wide cannot show finer than
+   * that anyway and every redraw is a notification post.
+   */
+  private fun autoProgressIntervalMs(spanMs: Long): Long =
+    (spanMs / 200).coerceIn(1_000L, 30_000L)
+
+  private fun cancelAutoProgress(id: String) {
+    ticking.remove(id)?.let(handler::removeCallbacks)
+  }
+
   private fun cancelLinger(id: String) {
     lingering.remove(id)?.let(handler::removeCallbacks)
   }
@@ -279,5 +386,13 @@ class LiveUpdateManager(context: Context) {
   companion object {
     private const val TAG = "LiveUpdate"
     private const val LIVE_UPDATE_SDK = 36
+
+    private val sharedHandler = Handler(Looper.getMainLooper())
+
+    /** Pending linger cancellations, for API levels without a system timer. */
+    private val lingering = mutableMapOf<String, Runnable>()
+
+    /** Auto-progress tickers, one per live update that asked for one. */
+    private val ticking = mutableMapOf<String, Runnable>()
   }
 }

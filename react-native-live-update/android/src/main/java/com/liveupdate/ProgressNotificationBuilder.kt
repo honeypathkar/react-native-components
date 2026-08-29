@@ -95,7 +95,23 @@ internal class ProgressNotificationBuilder(private val context: Context) {
       .setSmallIcon(smallIcon(content))
       .setContentTitle(content.title.ifBlank { name })
       .setContentText(content.message)
-      .setStyle(progressStyle(content, accent))
+      // Which renderer draws the track, and whether one is drawn at all.
+      //
+      // The unbroken bar and the chip are mutually exclusive, and not by
+      // choice: ProgressStyle is the only promotable style, and it draws a
+      // separator wherever the reached and unreached parts meet. The plain
+      // ProgressBar has no separator and is not promotable. There is no
+      // configuration of either that gives both.
+      .also { builder ->
+        if (!content.progressBar) return@also
+        if (content.trackStyle == LiveUpdateContent.TRACK_CONTINUOUS &&
+          content.stages.isEmpty()
+        ) {
+          continuousTrack(builder, content)
+        } else {
+          builder.setStyle(progressStyle(content, accent))
+        }
+      }
       .setOngoing(ongoing)
       // Every update re-posts the same id. Without this, each one re-alerts.
       .setOnlyAlertOnce(true)
@@ -130,13 +146,19 @@ internal class ProgressNotificationBuilder(private val context: Context) {
             // buttons — passing one would be dead weight in the payload.
             null,
             action.title,
-            DeepLinkManager.contentIntent(
-              context,
-              action.deepLink ?: content.deepLink,
-              // Offset well past the notification's own request code so a
-              // button and the notification body cannot share a PendingIntent.
-              notificationId * ACTION_CODE_STRIDE + index,
-            ),
+            // Offset well past the notification's own request code so a
+            // button and the notification body cannot share a PendingIntent.
+            (notificationId * ACTION_CODE_STRIDE + index).let { requestCode ->
+              if (action.endsActivity) {
+                DeepLinkManager.endIntent(context, id, action.id, requestCode)
+              } else {
+                DeepLinkManager.contentIntent(
+                  context,
+                  action.deepLink ?: content.deepLink,
+                  requestCode,
+                )
+              }
+            },
           ).build(),
         )
       }
@@ -175,7 +197,25 @@ internal class ProgressNotificationBuilder(private val context: Context) {
     // the end cap. That reads as distance covered against distance remaining,
     // which is the one thing a delivery bar is for.
     val style = NotificationCompat.ProgressStyle()
-    val segments = segments(content.stages, accent)
+    val progress = content.progressAt()
+
+    // A track split by colour rather than by weight. Asking the platform to
+    // stop styling by progress makes every segment draw at full weight, and
+    // from there the only thing left to say "this much is done" is the colour
+    // of the two halves — which is exactly what the docs for
+    // setStyledByProgress point at. Stages own the track when they are
+    // present, so this only applies when they are not.
+    val uniform =
+      content.trackStyle == LiveUpdateContent.TRACK_EVEN &&
+        content.stages.isEmpty() &&
+        progress != null
+    val segments =
+      if (uniform) {
+        style.setStyledByProgress(false)
+        uniformSegments(progress!!, accent, content.trackColor ?: DEFAULT_TRACK)
+      } else {
+        segments(content.stages, accent)
+      }
 
     style.setProgressSegments(segments.map { it.segment })
 
@@ -191,8 +231,10 @@ internal class ProgressNotificationBuilder(private val context: Context) {
     }
     if (points.isNotEmpty()) style.setProgressPoints(points)
 
-    if (content.progress != null) {
-      style.setProgress((content.progress.coerceIn(0.0, 1.0) * trackTotal).roundToInt())
+    // Read through progressAt(), not content.progress: with autoProgress the
+    // position comes from the clock at the moment of drawing.
+    if (progress != null) {
+      style.setProgress((progress.coerceIn(0.0, 1.0) * trackTotal).roundToInt())
     } else {
       style.setProgressIndeterminate(true)
     }
@@ -265,6 +307,70 @@ internal class ProgressNotificationBuilder(private val context: Context) {
    * brand fetched at runtime — which cannot be a compiled resource by
    * definition.
    */
+  /**
+   * The classic `android.widget.ProgressBar` — one continuous line with no
+   * break in it anywhere.
+   *
+   * Both colours belong to the system here. The standard template draws this
+   * bar in the platform accent and ignores the notification's own colour, and
+   * NotificationCompat exposes no tint for it, so neither the accent nor
+   * trackColor survives. Per-segment colour is a ProgressStyle feature, and
+   * this is the renderer taken instead of it — the unbroken line and the
+   * coloured one are not available together.
+   */
+  private fun continuousTrack(
+    builder: NotificationCompat.Builder,
+    content: LiveUpdateContent,
+  ) {
+    val progress = content.progressAt()
+    if (progress == null) {
+      builder.setProgress(0, 0, true)
+    } else {
+      builder.setProgress(
+        trackTotal,
+        (progress.coerceIn(0.0, 1.0) * trackTotal).roundToInt(),
+        false,
+      )
+    }
+  }
+
+  /**
+   * The track as two segments: covered, then remaining.
+   *
+   * A zero-length segment is not a thin sliver, it is a rejected argument — so
+   * at either extreme the track becomes a single segment of the one colour
+   * that has any length to it.
+   */
+  private fun uniformSegments(
+    progress: Double,
+    accent: Int,
+    trackColor: Int,
+  ): List<Boundary> {
+    val done = (progress.coerceIn(0.0, 1.0) * trackTotal).roundToInt()
+    val left = trackTotal - done
+
+    return buildList {
+      if (done > 0) {
+        add(
+          Boundary(
+            segment = NotificationCompat.ProgressStyle.Segment(done).setColor(accent),
+            end = done,
+            color = accent,
+          ),
+        )
+      }
+      if (left > 0) {
+        add(
+          Boundary(
+            segment = NotificationCompat.ProgressStyle.Segment(left).setColor(trackColor),
+            end = trackTotal,
+            color = trackColor,
+          ),
+        )
+      }
+    }
+  }
+
   private fun trackIcon(value: String?): IconCompat? {
     if (value.isNullOrBlank()) return null
 
@@ -345,6 +451,8 @@ internal class ProgressNotificationBuilder(private val context: Context) {
     /** The track draws icons at roughly 24dp; this is generous for any density. */
     const val MAX_ICON_PX = 192
     /** Android shows three actions and silently drops any beyond that. */
+    /** Neutral grey for the unreached track, legible on light and dark. */
+    const val DEFAULT_TRACK = 0xFF9E9E9E.toInt()
     const val MAX_ACTIONS = 3
     const val ACTION_CODE_STRIDE = 8
   }

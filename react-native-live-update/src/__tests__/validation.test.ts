@@ -143,6 +143,26 @@ describe('content', () => {
       ).not.toThrow();
     });
 
+    it('accepts an action that ends the activity in place', () => {
+      expect(() =>
+        validateContent({
+          ...valid,
+          actions: [{ id: 'cancel', title: 'Cancel', endsActivity: true }],
+        }),
+      ).not.toThrow();
+    });
+
+    it('rejects a non-boolean endsActivity', () => {
+      expectInvalid(
+        () =>
+          validateContent({
+            ...valid,
+            actions: [{ id: 'cancel', title: 'Cancel', endsActivity: 'yes' }],
+          }),
+        'endsActivity',
+      );
+    });
+
     // Android silently drops the extras, so a fourth is a bug the developer
     // would otherwise only find by squinting at a device.
     it('rejects a fourth, naming the platform limit', () => {
@@ -178,6 +198,94 @@ describe('content', () => {
             actions: [{ ...action, deepLink: '/orders/1' }],
           }),
         'must include a scheme',
+      );
+    });
+  });
+
+  describe('auto progress', () => {
+    const span = { startsAt: 1_700_000_000_000, endsAt: 1_700_000_060_000 };
+
+    it('accepts a span to fill from', () => {
+      expect(() =>
+        validateContent({ ...valid, ...span, autoProgress: true }),
+      ).not.toThrow();
+    });
+
+    // Without both stamps there is no span, and the track would simply sit at
+    // zero on the device — a silent failure worth turning into a loud one.
+    it('rejects autoProgress with no startsAt', () => {
+      expectInvalid(
+        () => validateContent({ ...valid, endsAt: span.endsAt, autoProgress: true }),
+        'startsAt',
+      );
+    });
+
+    it('rejects autoProgress with no endsAt', () => {
+      expectInvalid(
+        () => validateContent({ ...valid, startsAt: span.startsAt, autoProgress: true }),
+        'endsAt',
+      );
+    });
+
+    it('rejects a span that ends before it starts', () => {
+      expectInvalid(
+        () =>
+          validateContent({
+            ...valid,
+            startsAt: span.endsAt,
+            endsAt: span.startsAt,
+            autoProgress: true,
+          }),
+        'after startsAt',
+      );
+    });
+
+    // Nothing to fill: the bar is the only thing autoProgress moves.
+    it('rejects autoProgress with the bar switched off', () => {
+      expectInvalid(
+        () =>
+          validateContent({
+            ...valid,
+            ...span,
+            autoProgress: true,
+            progressBar: false,
+          }),
+        'progressBar',
+      );
+    });
+
+    it('rejects a startsAt that is not epoch milliseconds', () => {
+      expectInvalid(
+        () => validateContent({ ...valid, startsAt: 0 }),
+        'startsAt',
+      );
+    });
+  });
+
+  describe('track style', () => {
+    it('accepts each of the three renderers', () => {
+      for (const trackStyle of ['segmented', 'even', 'continuous']) {
+        expect(() => validateContent({ ...valid, trackStyle })).not.toThrow();
+      }
+    });
+
+    it('rejects an unknown one, listing what it could have been', () => {
+      expectInvalid(
+        () => validateContent({ ...valid, trackStyle: 'solid' }),
+        'segmented, even, continuous',
+      );
+    });
+
+    it('accepts a track colour', () => {
+      expect(() =>
+        validateContent({ ...valid, trackColor: '#3A3A46' }),
+      ).not.toThrow();
+    });
+
+    it('rejects a track colour that is not a hex colour', () => {
+      expectInvalid(
+        () => validateContent({ ...valid, trackColor: 'grey' }),
+        'content.trackColor',
       );
     });
   });

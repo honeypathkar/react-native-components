@@ -24,6 +24,8 @@ const MAX_ID = 128;
  */
 const MAX_STAGES = 12;
 
+const TRACK_STYLES = ['segmented', 'even', 'continuous'];
+
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 /** `scheme://...` or `scheme:...` — anything Linking could actually open. */
 const URL_WITH_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
@@ -70,6 +72,15 @@ export function validateContent(content: unknown): void {
   assertText(c.message, 'content.message', MAX_MESSAGE, false);
   assertText(c.status, 'content.status', MAX_STATUS, false);
   assertColor(c.color, 'content.color');
+  assertColor(c.trackColor, 'content.trackColor');
+
+  if (c.trackStyle !== undefined && c.trackStyle !== null) {
+    if (!TRACK_STYLES.includes(c.trackStyle)) {
+      fail(
+        `content.trackStyle must be one of ${TRACK_STYLES.join(', ')} (got ${String(c.trackStyle)})`,
+      );
+    }
+  }
 
   if (c.progress !== undefined && c.progress !== null) {
     if (typeof c.progress !== 'number' || !Number.isFinite(c.progress)) {
@@ -81,6 +92,29 @@ export function validateContent(content: unknown): void {
       fail(
         `content.progress is a fraction between 0 and 1, not a percentage (got ${c.progress})`,
       );
+    }
+  }
+
+  if (c.startsAt !== undefined && c.startsAt !== null) {
+    if (typeof c.startsAt !== 'number' || !Number.isFinite(c.startsAt)) {
+      fail('content.startsAt must be a number');
+    }
+    if (c.startsAt <= 0) {
+      fail('content.startsAt must be epoch milliseconds');
+    }
+  }
+
+  if (c.autoProgress) {
+    // Caught here rather than on the other side, where the track would simply
+    // sit at zero and look like a bug in the library.
+    if (c.startsAt == null || c.endsAt == null) {
+      fail('content.autoProgress needs both startsAt and endsAt to fill from');
+    }
+    if (c.endsAt <= c.startsAt) {
+      fail('content.autoProgress needs endsAt to be after startsAt');
+    }
+    if (c.progressBar === false) {
+      fail('content.autoProgress has nothing to fill with progressBar: false');
     }
   }
 
@@ -133,6 +167,12 @@ function validateActions(actions: unknown): void {
       fail(`content.actions[${i}].id "${action.id}" is used more than once`);
     }
     seen.add(action.id);
+
+    if (action.endsActivity !== undefined && action.endsActivity !== null) {
+      if (typeof action.endsActivity !== 'boolean') {
+        fail(`content.actions[${i}].endsActivity must be a boolean`);
+      }
+    }
 
     if (action.deepLink !== undefined && action.deepLink !== null) {
       if (

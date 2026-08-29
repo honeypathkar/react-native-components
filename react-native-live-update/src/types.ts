@@ -52,8 +52,29 @@ export interface LiveUpdateAction {
    * Where tapping it takes the user. Same rules as
    * {@link LiveUpdateContent.deepLink}: your app must already handle the URL.
    * Without one, the button opens the app at its launch screen.
+   *
+   * Ignored when {@link endsActivity} is set — that button never opens
+   * anything.
    */
   deepLink?: string;
+  /**
+   * **Android only.** End the live update where it stands, without opening the
+   * app.
+   *
+   * The default for a button is to launch your app, because that is all a
+   * notification action can reliably do when the JS runtime may not be running.
+   * That is the wrong shape for "Cancel" or "Stop": pulling a screen to the
+   * front in order to dismiss the notification the user just dismissed is the
+   * opposite of what they asked for. With this set, the tap is handled by a
+   * broadcast receiver inside the package — native, alive whether or not React
+   * Native is — and the activity finishes with the user left where they were.
+   *
+   * Your app is not told directly, because there may be no app to tell. It
+   * finds out the next time it asks: the id stops appearing in
+   * {@link getRunning}. Reconcile there rather than assuming the workout is
+   * still running.
+   */
+  endsActivity?: boolean;
 }
 
 export interface LiveUpdateContent {
@@ -84,6 +105,43 @@ export interface LiveUpdateContent {
    * which is the cheapest way to keep it fresh.
    */
   endsAt?: number;
+  /**
+   * Epoch milliseconds the run began. On its own it does nothing; paired with
+   * `endsAt` it describes a span, which is what {@link autoProgress} fills the
+   * track from.
+   */
+  startsAt?: number;
+  /**
+   * **Android only.** Move the track by the clock instead of by `progress`.
+   *
+   * Needs `startsAt` and `endsAt`. The package then re-posts the notification
+   * on its own schedule and works the fraction out each time, so the bar
+   * advances with no `update()` calls at all — which is the only way it can
+   * advance while your app is in the background. React Native stops every JS
+   * timer as soon as the activity pauses, so a bar driven from JS stops moving
+   * precisely when the user pulls the shade down to look at it.
+   *
+   * The redraws are native, not free: they stop if Android freezes your
+   * process. Position is recomputed from the clock rather than stepped, so a
+   * frozen stretch costs frames and not accuracy — the bar is right again on
+   * the first tick after the thaw. Keeping it moving through a freeze needs a
+   * foreground service in your app.
+   *
+   * Ignored on iOS, where ActivityKit already redraws `ProgressView(timerInterval:)`
+   * from the same two timestamps.
+   */
+  autoProgress?: boolean;
+  /**
+   * Draw the progress track at all. Defaults to `true`.
+   *
+   * **Android: switching this off costs the status-bar chip.** Promotion is an
+   * AND of several conditions and one of them is `hasPromotableStyle()`, which
+   * on Android 16 means the notification carries a `ProgressStyle` — there is
+   * no "ProgressStyle without a bar". Turn it off for a live update that is
+   * genuinely stateless text and you get a plain ongoing notification in the
+   * shade: no chip, no Now Bar, no lock-screen card.
+   */
+  progressBar?: boolean;
   /**
    * Leading glyph. iOS: an SF Symbol name. Android: a drawable name in your
    * app's resources, falling back to the app icon if it does not resolve.
@@ -131,6 +189,43 @@ export interface LiveUpdateContent {
   endIcon?: string;
   /** Accent colour, `#RRGGBB`. Tints the track and the status-bar chip. */
   color?: string;
+  /**
+   * **Android only.** Colour of the part of the track not yet reached.
+   * Defaults to a neutral grey.
+   *
+   * Only has an effect with `trackStyle: 'even'`: while the platform is
+   * styling the track by progress it draws the unreached part itself, from the
+   * accent, and takes no colour from us.
+   */
+  trackColor?: string;
+  /**
+   * **Android only.** How the track is drawn.
+   *
+   * - `'segmented'` (default) — Android 16's `ProgressStyle`. The reached half
+   *   is heavier than the unreached one, with a step where they meet. This is
+   *   the only shape the system will promote to the status-bar chip.
+   * - `'even'` — still `ProgressStyle`, but every segment at full weight, the
+   *   two halves told apart by the accent and {@link trackColor}. Keeps the
+   *   chip. Android still draws its own separator between segments, so a
+   *   hairline gap remains where they meet.
+   * - `'continuous'` — the plain `android.widget.ProgressBar`: one unbroken
+   *   line, no gap anywhere. Two things go with it. It **forfeits the chip**,
+   *   and with it the Now Bar and the lock-screen card, because promotion
+   *   requires a `ProgressStyle` notification. And it is **not your colour**:
+   *   the standard template draws this bar in the system accent and ignores
+   *   `color` entirely, so both {@link trackColor} and the accent are dropped.
+   *   There is no per-notification tint for it — `NotificationCompat` exposes
+   *   none, and short of shipping a custom RemoteViews layout there is nothing
+   *   to reach for. Segment colours are a `ProgressStyle` feature, and this is
+   *   the renderer you take instead of it.
+   *
+   * There is no setting that gives both an unbroken bar and the chip: the two
+   * looks come from two different renderers, and only one of them is
+   * promotable.
+   *
+   * Ignored when `stages` are supplied — those describe their own segments.
+   */
+  trackStyle?: 'segmented' | 'even' | 'continuous';
   /**
    * Where tapping it should take the user — `myapp://orders/8231`.
    *

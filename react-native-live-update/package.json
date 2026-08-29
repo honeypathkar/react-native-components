@@ -1,6 +1,6 @@
 {
   "name": "@honeypathkar/react-native-live-update",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Live Activities on iOS (Lock Screen + Dynamic Island) and Live Updates on Android 16 (status-bar chip, and the OEM surfaces built on it such as Samsung's Now Bar) behind one API.",
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",

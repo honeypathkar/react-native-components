@@ -65,6 +65,33 @@ internal object DeepLinkManager {
     )
   }
 
+  /**
+   * A tap target that is handled in-process instead of by an activity.
+   *
+   * Same PendingIntent matching rules as everything else here — request codes
+   * have to differ per button, since extras are not part of the match and two
+   * buttons sharing one would end whichever activity was posted last.
+   */
+  fun endIntent(
+    context: Context,
+    id: String,
+    actionId: String,
+    requestCode: Int,
+  ): PendingIntent {
+    val intent = Intent(context, ActionReceiver::class.java).apply {
+      action = ActionReceiver.ACTION
+      setPackage(context.packageName)
+      putExtra(ActionReceiver.EXTRA_ID, id)
+      putExtra(ActionReceiver.EXTRA_ACTION_ID, actionId)
+    }
+    return PendingIntent.getBroadcast(
+      context,
+      requestCode,
+      intent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+  }
+
   private fun deepLinkIntent(context: Context, deepLink: String?): Intent? {
     if (deepLink.isNullOrBlank()) return null
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {

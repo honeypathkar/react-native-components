@@ -24,7 +24,16 @@ data class Stage(
 )
 
 /** A button on the live update. */
-data class Action(val id: String, val title: String, val deepLink: String?)
+/**
+ * @property endsActivity handle the tap in the receiver and finish the live
+ *   update there, instead of opening the app to do it.
+ */
+data class Action(
+  val id: String,
+  val title: String,
+  val deepLink: String?,
+  val endsActivity: Boolean = false,
+)
 
 /**
  * Everything JS sends for one live update, parsed once at the bridge.
@@ -40,6 +49,15 @@ data class LiveUpdateContent(
   val status: String?,
   /** 0..1, or null for an indeterminate track. */
   val progress: Double?,
+  /**
+   * Epoch milliseconds the run began. Pairs with [endsAt] to describe a span,
+   * which is what [autoProgress] fills the track from.
+   */
+  val startsAt: Long?,
+  /** Fill the track from the clock rather than from [progress]. */
+  val autoProgress: Boolean,
+  /** Draw the track at all. */
+  val progressBar: Boolean,
   val stages: List<Stage>,
   /** Epoch milliseconds, or null for no countdown. */
   val endsAt: Long?,
@@ -49,21 +67,46 @@ data class LiveUpdateContent(
   val endIcon: String?,
   /** Parsed ARGB accent, or null for the package default. */
   val color: Int?,
+  /** Parsed ARGB colour for the unreached part of the track. */
+  val trackColor: Int?,
+  /** "segmented" (default), "even", or "continuous". */
+  val trackStyle: String,
   val deepLink: String?,
   val actions: List<Action>,
 ) {
+  /**
+   * Where the track should sit right now.
+   *
+   * With [autoProgress] the answer is a function of the clock, so it is
+   * computed at the moment of drawing rather than sent from JS. That is the
+   * whole point: a fraction posted from JS is stale the instant it lands, and
+   * on Android it can only be refreshed while the app is awake to refresh it.
+   */
+  fun progressAt(now: Long = System.currentTimeMillis()): Double? {
+    if (!autoProgress) return progress
+    val start = startsAt ?: return progress
+    val end = endsAt ?: return progress
+    if (end <= start) return 1.0
+    return ((now - start).toDouble() / (end - start).toDouble()).coerceIn(0.0, 1.0)
+  }
+
   fun toJson(): JSONObject =
     JSONObject().apply {
       put("title", title)
       putOpt("message", message)
       putOpt("status", status)
       progress?.let { put("progress", it) }
+      startsAt?.let { put("startsAt", it) }
+      put("autoProgress", autoProgress)
+      put("progressBar", progressBar)
       endsAt?.let { put("endsAt", it) }
       putOpt("icon", icon)
       putOpt("trackerIcon", trackerIcon)
       putOpt("startIcon", startIcon)
       putOpt("endIcon", endIcon)
       color?.let { put("color", it) }
+      trackColor?.let { put("trackColor", it) }
+      put("trackStyle", trackStyle)
       putOpt("deepLink", deepLink)
       if (actions.isNotEmpty()) {
         put(
@@ -75,6 +118,7 @@ data class LiveUpdateContent(
                   put("id", action.id)
                   put("title", action.title)
                   action.deepLink?.let { put("deepLink", it) }
+                  put("endsActivity", action.endsActivity)
                 },
               )
             }
@@ -105,6 +149,10 @@ data class LiveUpdateContent(
     /** What a stage weighs when the caller does not say. */
     private const val DEFAULT_WEIGHT = 1.0
 
+    const val TRACK_SEGMENTED = "segmented"
+    const val TRACK_EVEN = "even"
+    const val TRACK_CONTINUOUS = "continuous"
+
     fun from(map: ReadableMap): LiveUpdateContent =
       LiveUpdateContent(
         // JS validation guarantees a title; the fallback is for a native
@@ -113,6 +161,9 @@ data class LiveUpdateContent(
         message = map.string("message"),
         status = map.string("status"),
         progress = map.double("progress"),
+        startsAt = map.double("startsAt")?.toLong(),
+        autoProgress = map.boolean("autoProgress") ?: false,
+        progressBar = map.boolean("progressBar") ?: true,
         stages = map.array("stages")?.let(::parseStages).orEmpty(),
         endsAt = map.double("endsAt")?.toLong(),
         icon = map.string("icon"),
@@ -120,6 +171,8 @@ data class LiveUpdateContent(
         startIcon = map.string("startIcon"),
         endIcon = map.string("endIcon"),
         color = parseColor(map.string("color")),
+        trackColor = parseColor(map.string("trackColor")),
+        trackStyle = map.string("trackStyle") ?: TRACK_SEGMENTED,
         deepLink = map.string("deepLink"),
         actions = map.array("actions")?.let(::parseActions).orEmpty(),
       )
@@ -130,6 +183,9 @@ data class LiveUpdateContent(
         message = json.stringOrNull("message"),
         status = json.stringOrNull("status"),
         progress = if (json.has("progress")) json.getDouble("progress") else null,
+        startsAt = if (json.has("startsAt")) json.getLong("startsAt") else null,
+        autoProgress = json.optBoolean("autoProgress", false),
+        progressBar = json.optBoolean("progressBar", true),
         stages = json.optJSONArray("stages")?.let { array ->
           (0 until array.length()).map { i ->
             val stage = array.getJSONObject(i)
@@ -148,6 +204,8 @@ data class LiveUpdateContent(
         startIcon = json.stringOrNull("startIcon"),
         endIcon = json.stringOrNull("endIcon"),
         color = if (json.has("color")) json.getInt("color") else null,
+        trackColor = if (json.has("trackColor")) json.getInt("trackColor") else null,
+        trackStyle = json.stringOrNull("trackStyle") ?: TRACK_SEGMENTED,
         deepLink = json.stringOrNull("deepLink"),
         actions = json.optJSONArray("actions")?.let { array ->
           (0 until array.length()).map { i ->
@@ -156,6 +214,7 @@ data class LiveUpdateContent(
               id = action.optString("id"),
               title = action.optString("title"),
               deepLink = action.stringOrNull("deepLink"),
+              endsActivity = action.optBoolean("endsActivity", false),
             )
           }
         }.orEmpty(),
@@ -168,6 +227,7 @@ data class LiveUpdateContent(
           id = action.string("id") ?: return@mapNotNull null,
           title = action.string("title") ?: return@mapNotNull null,
           deepLink = action.string("deepLink"),
+          endsActivity = action.boolean("endsActivity") ?: false,
         )
       }
 
