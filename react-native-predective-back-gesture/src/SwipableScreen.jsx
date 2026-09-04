@@ -22,6 +22,20 @@ import {
 
 const { width, height } = Dimensions.get("window");
 
+/**
+ * How the screen moves while the gesture is in flight.
+ *
+ * `card` is Material's predictive back: the screen shrinks and drifts a little,
+ * staying on screen so the user can see what they are about to go back to, and
+ * only leaves once they commit. `slide` is the older, flatter idea — the screen
+ * tracks the finger across the full width and walks off the edge, which is what
+ * most stock apps still do.
+ *
+ * The default stays `card`, so nothing changes for anything already using this.
+ */
+export const ANIMATION_CARD = "card";
+export const ANIMATION_SLIDE = "slide";
+
 // Material predictive-back peek: the card shrinks and drifts a little way to the right
 // while the gesture is in flight, revealing the screen underneath. It only leaves the
 // screen once the user commits.
@@ -30,6 +44,18 @@ const MAX_PEEK_X = width * 0.12;
 const MAX_PEEK_Y = height * 0.03;
 const CORNER_RADIUS = 32;
 const MAX_DIM = 0.5;
+
+/**
+ * How far a full drag carries a sliding screen, as a fraction of the width.
+ *
+ * Not 1. Dragging the screen all the way off under the finger leaves nothing on
+ * screen before the gesture is even released, so a cancel has to haul the whole
+ * width back and a commit has nothing left to animate — the transition is over
+ * before the decision is made. Stopping the drag short keeps a piece of the
+ * outgoing screen in view the whole time and leaves the commit something to do,
+ * which is what makes the release read as a release.
+ */
+const SLIDE_PEEK_TRAVEL = 0.6;
 
 // Screens enter from the right and leave back to the right — the exit always mirrors
 // the entry, whichever edge the gesture came from.
@@ -47,7 +73,27 @@ const PEEK_THRESHOLD = 0.35;
 const VELOCITY_THRESHOLD = 900;
 const MIN_VELOCITY_DISTANCE = 50;
 
-const SwipeableScreen = ({ children, enabled = true, style, onHaptic, backgroundColor = '#000000', onGoBack }) => {
+const SwipeableScreen = ({
+  children,
+  enabled = true,
+  style,
+  onHaptic,
+  backgroundColor = '#000000',
+  onGoBack,
+  animation = ANIMATION_CARD,
+  peekTravel = SLIDE_PEEK_TRAVEL,
+}) => {
+  const isSlide = animation === ANIMATION_SLIDE;
+
+  // Clamped rather than trusted: a value above 1 would push the screen past the
+  // edge mid-drag and then have the commit animate it back inwards.
+  const slideTravel = Math.min(Math.max(peekTravel, 0), 1);
+
+  // A peek only has to travel far enough to read as a peek, so the card
+  // completes in well under a screen width. A slide is the screen itself under
+  // the finger, and anything other than one-to-one feels like lag.
+  const dragRange = isSlide ? width : DRAG_RANGE;
+
   let navigation = null;
   try {
     navigation = useNavigation();
@@ -199,7 +245,7 @@ const SwipeableScreen = ({ children, enabled = true, style, onHaptic, background
       if (nativeActive.value || event.translationX <= 0) {
         return;
       }
-      peek.value = Math.min(event.translationX / DRAG_RANGE, 1);
+      peek.value = Math.min(event.translationX / dragRange, 1);
       pivot.value = (event.y / height) * 2 - 1;
     })
     .onEnd((event) => {
@@ -223,10 +269,24 @@ const SwipeableScreen = ({ children, enabled = true, style, onHaptic, background
   // ─── Card ────────────────────────────────────────────────────────────────
   const screenStyle = useAnimatedStyle(() => {
     const p = peek.value;
+    const e = exit.value;
+
+    if (isSlide) {
+      // One expression for both halves of the journey. The gesture carries the
+      // screen as far as slideTravel allows; the commit takes it from wherever
+      // that left off out to the full width. Written as a single blend so there
+      // is no jump at the hand-off — a release at 40% of the drag continues
+      // from exactly where the finger left it, rather than snapping to a fresh
+      // starting point.
+      const travelled = p * slideTravel * width;
+      return {
+        transform: [{ translateX: travelled + (width - travelled) * e }],
+      };
+    }
 
     return {
       transform: [
-        { translateX: p * MAX_PEEK_X + exit.value * width },
+        { translateX: p * MAX_PEEK_X + e * width },
         { translateY: pivot.value * p * MAX_PEEK_Y },
         { scale: 1 - MAX_SCALE_DOWN * p },
       ],
