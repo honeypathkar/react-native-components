@@ -1,0 +1,6 @@
+<resources>
+    <string name="soundbox_service_title">Soundbox Service is active</string>
+    <string name="soundbox_service_text">Listening for incoming notifications &amp; payments</string>
+    <string name="soundbox_channel_name">Soundbox Service Status</string>
+    <string name="soundbox_channel_description">Persistent notification indicating soundbox background listener is running</string>
+</resources>

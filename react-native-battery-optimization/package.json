@@ -1,0 +1,47 @@
+{
+  "name": "@honeypathkar/react-native-battery-optimization",
+  "version": "1.0.1",
+  "description": "Cross-OEM Android Battery Optimization exemption and manufacturer AutoStart settings helper for React Native background services.",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "lib/commonjs/index.js",
+  "module": "lib/commonjs/index.js",
+  "types": "lib/commonjs/index.d.ts",
+  "files": [
+    "src",
+    "lib",
+    "android/src",
+    "android/build.gradle",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "react-native",
+    "battery-optimization",
+    "battery-saver",
+    "doze-mode",
+    "autostart",
+    "background-service",
+    "xiaomi",
+    "samsung",
+    "oppo",
+    "vivo"
+  ],
+  "author": "honeypathkar",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-native": "^0.72.8",
+    "react": "^18.2.0",
+    "react-native": "^0.72.0",
+    "typescript": "^5.0.0"
+  }
+}

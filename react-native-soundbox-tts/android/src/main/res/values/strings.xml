@@ -1,0 +1,58 @@
+<resources>
+    <!-- Announcement templates in 8 Indian Languages -->
+    <string name="tts_prefix_en">Payment received, </string>
+    <string name="tts_amount_en">%1$s rupees</string>
+    <string name="tts_amount_paise_en">%1$s rupees %2$s paise</string>
+    <string name="tts_from_en"> from %1$s</string>
+    <string name="tts_on_en"> on %1$s</string>
+    <string name="tts_ready_en">Soundbox is ready</string>
+
+    <string name="tts_amount_hi">%1$s रुपये</string>
+    <string name="tts_amount_paise_hi">%1$s रुपये %2$s पैसे</string>
+    <string name="tts_from_hi">%1$s से </string>
+    <string name="tts_on_hi">%1$s पर </string>
+    <string name="tts_suffix_hi"> प्राप्त हुए</string>
+    <string name="tts_ready_hi">साउंडबॉक्स तैयार है</string>
+
+    <string name="tts_amount_mr">%1$s रुपये</string>
+    <string name="tts_amount_paise_mr">%1$s रुपये %2$s पैसे</string>
+    <string name="tts_from_mr">%1$s कडून </string>
+    <string name="tts_on_mr">%1$s वर </string>
+    <string name="tts_suffix_mr"> मिळाले</string>
+    <string name="tts_ready_mr">साउंडबॉक्स तयार आहे</string>
+
+    <string name="tts_amount_bn">%1$s টাকা</string>
+    <string name="tts_amount_paise_bn">%1$s টাকা %2$s পয়সা</string>
+    <string name="tts_from_bn">%1$s থেকে </string>
+    <string name="tts_on_bn">%1$s এ </string>
+    <string name="tts_suffix_bn"> পাওয়া গেছে</string>
+    <string name="tts_ready_bn">সাউন্ডবক্স প্রস্তুত</string>
+
+    <string name="tts_amount_gu">%1$s રૂપિયા</string>
+    <string name="tts_amount_paise_gu">%1$s રૂપિયા %2$s પૈસા</string>
+    <string name="tts_from_gu">%1$s તરફથી </string>
+    <string name="tts_on_gu">%1$s પર </string>
+    <string name="tts_suffix_gu"> મળ્યા</string>
+    <string name="tts_ready_gu">સાઉન્ડબોક્સ તૈયાર છે</string>
+
+    <string name="tts_amount_ta">%1$s ரூபாய்</string>
+    <string name="tts_amount_paise_ta">%1$s ரூபாய் %2$s பைசா</string>
+    <string name="tts_from_ta">%1$s இடமிருந்து </string>
+    <string name="tts_on_ta">%1$s இல் </string>
+    <string name="tts_suffix_ta"> பெறப்பட்டது</string>
+    <string name="tts_ready_ta">சவுண்ட்பாக்ஸ் தயார்</string>
+
+    <string name="tts_amount_te">%1$s రూపాయలు</string>
+    <string name="tts_amount_paise_te">%1$s రూపాయలు %2$s పైసలు</string>
+    <string name="tts_from_te">%1$s నుండి </string>
+    <string name="tts_on_te">%1$s లో </string>
+    <string name="tts_suffix_te"> అందాయి</string>
+    <string name="tts_ready_te">సౌండ్‌బాక్స్ సిద్ధంగా ఉంది</string>
+
+    <string name="tts_amount_kn">%1$s ರೂಪಾಯಿ</string>
+    <string name="tts_amount_paise_kn">%1$s ರೂಪಾಯಿ %2$s ಪೈಸೆ</string>
+    <string name="tts_from_kn">%1$s ಇಂದ </string>
+    <string name="tts_on_kn">%1$s ನಲ್ಲಿ </string>
+    <string name="tts_suffix_kn"> ಸ್ವೀಕರಿಸಲಾಗಿದೆ</string>
+    <string name="tts_ready_kn">ಸೌಂಡ್‌ಬಾಕ್ಸ್ ಸಿದ್ಧವಾಗಿದೆ</string>
+</resources>
