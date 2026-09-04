@@ -38,6 +38,15 @@
     "dictation",
     "transcription"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/honeypathkar/react-native-components.git",
+    "directory": "react-native-speech-to-text"
+  },
+  "homepage": "https://github.com/honeypathkar/react-native-components/tree/master/react-native-speech-to-text#readme",
+  "bugs": {
+    "url": "https://github.com/honeypathkar/react-native-components/issues"
+  },
   "author": "honeypathkar",
   "license": "MIT",
   "peerDependencies": {

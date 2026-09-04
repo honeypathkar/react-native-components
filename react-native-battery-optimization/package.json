@@ -31,6 +31,15 @@
     "oppo",
     "vivo"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/honeypathkar/react-native-components.git",
+    "directory": "react-native-battery-optimization"
+  },
+  "homepage": "https://github.com/honeypathkar/react-native-components/tree/master/react-native-battery-optimization#readme",
+  "bugs": {
+    "url": "https://github.com/honeypathkar/react-native-components/issues"
+  },
   "author": "honeypathkar",
   "license": "MIT",
   "peerDependencies": {

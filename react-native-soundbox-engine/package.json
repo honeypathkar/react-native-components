@@ -28,6 +28,15 @@
     "soundbox",
     "payment-soundbox"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/honeypathkar/react-native-components.git",
+    "directory": "react-native-soundbox-engine"
+  },
+  "homepage": "https://github.com/honeypathkar/react-native-components/tree/master/react-native-soundbox-engine#readme",
+  "bugs": {
+    "url": "https://github.com/honeypathkar/react-native-components/issues"
+  },
   "author": "honeypathkar",
   "license": "MIT",
   "peerDependencies": {

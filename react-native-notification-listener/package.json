@@ -30,6 +30,15 @@
     "phonepe",
     "paytm"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/honeypathkar/react-native-components.git",
+    "directory": "react-native-notification-listener"
+  },
+  "homepage": "https://github.com/honeypathkar/react-native-components/tree/master/react-native-notification-listener#readme",
+  "bugs": {
+    "url": "https://github.com/honeypathkar/react-native-components/issues"
+  },
   "author": "honeypathkar",
   "license": "MIT",
   "peerDependencies": {

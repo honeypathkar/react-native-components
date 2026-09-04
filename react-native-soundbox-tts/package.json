@@ -28,6 +28,15 @@
     "multilingual",
     "android-tts"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/honeypathkar/react-native-components.git",
+    "directory": "react-native-soundbox-tts"
+  },
+  "homepage": "https://github.com/honeypathkar/react-native-components/tree/master/react-native-soundbox-tts#readme",
+  "bugs": {
+    "url": "https://github.com/honeypathkar/react-native-components/issues"
+  },
   "author": "honeypathkar",
   "license": "MIT",
   "peerDependencies": {
