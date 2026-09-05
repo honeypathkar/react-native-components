@@ -1,6 +1,6 @@
 {
   "name": "@honeypathkar/react-native-battery-optimization",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Cross-OEM Android Battery Optimization exemption and manufacturer AutoStart settings helper for React Native background services.",
   "publishConfig": {
     "access": "public"

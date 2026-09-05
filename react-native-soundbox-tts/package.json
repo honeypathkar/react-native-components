@@ -1,6 +1,6 @@
 {
   "name": "@honeypathkar/react-native-soundbox-tts",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Production-grade multilingual Android TTS soundbox engine for React Native with USAGE_MEDIA audio focus ducking, 8 Indian languages sentence builder, and auto-crash recovery.",
   "publishConfig": {
     "access": "public"

@@ -1,6 +1,6 @@
 {
   "name": "@honeypathkar/react-native-soundbox-engine",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Complete background Soundbox orchestrator for React Native with START_STICKY ForegroundService keep-alive, 15-minute Alarm watchdog, boot revival, and React status hooks.",
   "publishConfig": {
     "access": "public"

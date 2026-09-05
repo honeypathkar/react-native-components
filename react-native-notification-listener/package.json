@@ -1,6 +1,6 @@
 {
   "name": "@honeypathkar/react-native-notification-listener",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "General-purpose Android NotificationListenerService for React Native with deep 7-slot payload extraction, dynamic filtering, payment parsing, and offline SQLite storage.",
   "publishConfig": {
     "access": "public"
